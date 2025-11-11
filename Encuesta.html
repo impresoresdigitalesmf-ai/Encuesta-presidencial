@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encuesta Presidencial</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div id="app" class="p-4">
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h1 class="text-3xl font-bold mb-2">Encuesta Presidencial</h1>
+                            <p class="text-blue-100">Ordena los candidatos según tu preferencia</p>
+                        </div>
+                        <svg class="w-16 h-16 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="flex border-b">
+                    <button id="btnVotar" class="flex-1 py-4 px-6 font-semibold transition-colors bg-white text-blue-600 border-b-2 border-blue-600">
+                        <svg class="inline-block w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                        Votar
+                    </button>
+                    <button id="btnResultados" class="flex-1 py-4 px-6 font-semibold transition-colors bg-gray-50 text-gray-600 hover:bg-gray-100">
+                        <svg class="inline-block w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        Resultados (<span id="voteCount">0</span>)
+                    </button>
+                </div>
+
+                <div class="p-8">
+                    <!-- Voting Section -->
+                    <div id="votingSection">
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Tu nombre</label>
+                            <input type="text" id="voterName" placeholder="Ingresa tu nombre" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors">
+                        </div>
+
+                        <div class="mb-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Arrastra para ordenar (1º = más preferido)</h3>
+                            <div id="candidateList" class="space-y-3"></div>
+                        </div>
+
+                        <button id="btnSubmit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-4 px-6 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-800 transition-all transform hover:scale-[1.02] shadow-lg">
+                            Enviar Mi Voto
+                        </button>
+                    </div>
+
+                    <!-- Results Section -->
+                    <div id="resultsSection" class="hidden">
+                        <div class="mb-6 flex justify-between items-center">
+                            <h3 class="text-2xl font-bold text-gray-800">Resultados Finales</h3>
+                            <button id="btnReset" class="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+                                Reiniciar Encuesta
+                            </button>
+                        </div>
+                        <div id="resultsList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-6 text-sm text-gray-600">
+                <p>Los datos se guardan en tu navegador localmente</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURACIÓN - Modifica aquí los nombres de los candidatos
+        const CANDIDATES = [
+            'Kast',
+            'Matthei',
+            'Parisi',
+            'Jara',
+            'Ominami'
+            'Artes'
+            'Mayne'
+            'Kaiser'
+        ];
+
+        let userRanking = [...CANDIDATES];
+        let allVotes = [];
+        let draggedIndex = null;
+
+        // Cargar datos guardados
+        function loadData() {
+            const saved = localStorage.getItem('presidentialVotes');
+            if (saved) {
+                allVotes = JSON.parse(saved);
+                updateVoteCount();
+            }
+        }
+
+        // Guardar datos
+        function saveData() {
+            localStorage.setItem('presidentialVotes', JSON.stringify(allVotes));
+            updateVoteCount();
+        }
+
+        // Actualizar contador de votos
+        function updateVoteCount() {
+            document.getElementById('voteCount').textContent = allVotes.length;
+        }
+
+        // Renderizar lista de candidatos para votar
+        function renderCandidates() {
+            const list = document.getElementById('candidateList');
+            list.innerHTML = '';
+            
+            userRanking.forEach((candidate, index) => {
+                const div = document.createElement('div');
+                div.draggable = true;
+                div.className = 'flex items-center bg-gradient-to-r from-gray-50 to-white p-4 rounded-xl border-2 border-gray-200 cursor-move transition-all hover:shadow-md';
+                div.dataset.index = index;
+                
+                div.innerHTML = `
+                    <div class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white font-bold mr-4">
+                        ${index + 1}
+                    </div>
+                    <svg class="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+                    </svg>
+                    <span class="text-lg font-medium text-gray-800">${candidate}</span>
+                `;
+                
+                div.addEventListener('dragstart', handleDragStart);
+                div.addEventListener('dragover', handleDragOver);
+                div.addEventListener('drop', handleDrop);
+                div.addEventListener('dragend', handleDragEnd);
+                
+                list.appendChild(div);
+            });
+        }
+
+        function handleDragStart(e) {
+            draggedIndex = parseInt(e.currentTarget.dataset.index);
+            e.currentTarget.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            const targetIndex = parseInt(e.currentTarget.dataset.index);
+            
+            if (draggedIndex !== null && draggedIndex !== targetIndex) {
+                const newRanking = [...userRanking];
+                const draggedItem = newRanking[draggedIndex];
+                newRanking.splice(draggedIndex, 1);
+                newRanking.splice(targetIndex, 0, draggedItem);
+                userRanking = newRanking;
+                draggedIndex = targetIndex;
+                renderCandidates();
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+        }
+
+        function handleDragEnd(e) {
+            e.currentTarget.classList.remove('dragging');
+            draggedIndex = null;
+        }
+
+        // Enviar voto
+        function submitVote() {
+            const name = document.getElementById('voterName').value.trim();
+            
+            if (!name) {
+                alert('Por favor ingresa tu nombre');
+                return;
+            }
+
+            const vote = {
+                id: Date.now(),
+                voter: name,
+                ranking: [...userRanking],
+                timestamp: new Date().toISOString()
+            };
+
+            allVotes.push(vote);
+            saveData();
+            
+            alert('¡Voto registrado exitosamente!');
+            document.getElementById('voterName').value = '';
+            userRanking = [...CANDIDATES];
+            renderCandidates();
+        }
+
+        // Calcular resultados
+        function calculateResults() {
+            if (allVotes.length === 0) return [];
+
+            const scores = {};
+            CANDIDATES.forEach(candidate => {
+                scores[candidate] = 0;
+            });
+
+            const maxPoints = CANDIDATES.length;
+            
+            allVotes.forEach(vote => {
+                vote.ranking.forEach((candidate, index) => {
+                    scores[candidate] += (maxPoints - index);
+                });
+            });
+
+            const results = Object.entries(scores)
+                .map(([candidate, score]) => ({
+                    candidate,
+                    score,
+                    avgPosition: allVotes.reduce((sum, vote) => {
+                        return sum + (vote.ranking.indexOf(candidate) + 1);
+                    }, 0) / allVotes.length
+                }))
+                .sort((a, b) => b.score - a.score);
+
+            return results;
+        }
+
+        // Renderizar resultados
+        function renderResults() {
+            const container = document.getElementById('resultsList');
+            const results = calculateResults();
+
+            if (results.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        <p class="text-lg">Aún no hay votos registrados</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const maxScore = results[0].score;
+            let html = '<div class="space-y-4">';
+
+            results.forEach((result, index) => {
+                const colors = [
+                    'bg-yellow-500',
+                    'bg-gray-400',
+                    'bg-orange-600',
+                    'bg-gray-300'
+                ];
+                const bgColor = colors[Math.min(index, 3)];
+                const percentage = (result.score / maxScore) * 100;
+
+                html += `
+                    <div class="bg-gradient-to-r from-white to-gray-50 p-6 rounded-xl border-2 border-gray-200 hover:shadow-lg transition-shadow">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center">
+                                <div class="flex items-center justify-center w-12 h-12 rounded-full ${bgColor} font-bold text-white mr-4">
+                                    ${index + 1}
+                                </div>
+                                <div>
+                                    <h4 class="text-xl font-bold text-gray-800">${result.candidate}</h4>
+                                    <p class="text-sm text-gray-600">Posición promedio: ${result.avgPosition.toFixed(2)}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-3xl font-bold text-blue-600">${result.score}</div>
+                                <div class="text-xs text-gray-500">puntos</div>
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div class="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-500" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+
+            html += `
+                <div class="mt-8 p-6 bg-blue-50 rounded-xl border border-blue-200">
+                    <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                        </svg>
+                        Estadísticas
+                    </h4>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-600">Total de votos:</span>
+                            <span class="ml-2 font-bold text-gray-800">${allVotes.length}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Candidatos:</span>
+                            <span class="ml-2 font-bold text-gray-800">${CANDIDATES.length}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Cambiar entre pestañas
+        function showVoting() {
+            document.getElementById('votingSection').classList.remove('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('btnVotar').className = 'flex-1 py-4 px-6 font-semibold transition-colors bg-white text-blue-600 border-b-2 border-blue-600';
+            document.getElementById('btnResultados').className = 'flex-1 py-4 px-6 font-semibold transition-colors bg-gray-50 text-gray-600 hover:bg-gray-100';
+        }
+
+        function showResults() {
+            document.getElementById('votingSection').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+            document.getElementById('btnVotar').className = 'flex-1 py-4 px-6 font-semibold transition-colors bg-gray-50 text-gray-600 hover:bg-gray-100';
+            document.getElementById('btnResultados').className = 'flex-1 py-4 px-6 font-semibold transition-colors bg-white text-blue-600 border-b-2 border-blue-600';
+            renderResults();
+        }
+
+        // Reiniciar encuesta
+        function resetSurvey() {
+            if (confirm('¿Estás seguro de que quieres reiniciar todos los votos?')) {
+                allVotes = [];
+                localStorage.removeItem('presidentialVotes');
+                updateVoteCount();
+                showVoting();
+                alert('Encuesta reiniciada');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('btnVotar').addEventListener('click', showVoting);
+        document.getElementById('btnResultados').addEventListener('click', showResults);
+        document.getElementById('btnSubmit').addEventListener('click', submitVote);
+        document.getElementById('btnReset').addEventListener('click', resetSurvey);
+
+        // Inicializar
+        loadData();
+        renderCandidates();
+    </script>
+</body>
+</html>
